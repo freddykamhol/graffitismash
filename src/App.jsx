@@ -13,7 +13,6 @@ import burgerLayer6 from './assets/burger-layer-v3-6.webp'
 import burgerLayer7 from './assets/burger-layer-v3-7.webp'
 import './App.css'
 
-const orderUrl = 'https://www.foodbooking.com/ordering/restaurant/menu?company_uid=ce2536b2-77bd-4a90-9430-fdc666215e81&restaurant_uid=9f9fd048-f041-4902-8e76-df9ac7e69126&facebook=true'
 const reviewsUrl = 'https://share.google/SRs5KK0ET2HBvEL4k'
 const menu = {
   Burgers: [
@@ -45,6 +44,46 @@ const reviews = [
   ['Rainer Aschemeier', 4, 'Die Burger sind wirklich gut. Beim Smash Burger war ich positiv überrascht von der guten Qualität des Hackfleischs. Die Preise finde ich fair.'],
   ['rehman', 5, 'Best smash burger eaten lately!'],
 ]
+
+const productId = (category, number, name) => {
+  if (category === 'Burgers') return `burger-${number}`
+  if (category === 'Fries') return `fries-${number}`
+  if (category === 'Beilagen') return `side-${number}`
+  return `drink-${({ Wasser: 'water', Fanta: 'fanta', Sprite: 'sprite', 'Coca Cola': 'cola', Pepsi: 'pepsi', RedBull: 'redbull' })[name]}`
+}
+const cents = price => Math.round(Number(price.replace(/[^\d,]/g, '').replace(',', '.')) * 100)
+
+function Checkout({ cart, setCart, onClose }) {
+  const [sent, setSent] = useState('')
+  const [error, setError] = useState('')
+  const [sending, setSending] = useState(false)
+  const total = cart.reduce((sum, item) => sum + item.priceCents * item.quantity, 0)
+  const quantity = (id, change) => setCart(current => current.map(item => item.id === id ? { ...item, quantity: item.quantity + change } : item).filter(item => item.quantity > 0))
+  if (sent) return <div className="checkout-backdrop"><section className="checkout-panel checkout-success"><button onClick={onClose}>×</button><span>ORDER RECEIVED</span><h2>Danke!</h2><p>Deine Bestellnummer lautet</p><strong>{sent}</strong><p>Wir prüfen deine Bestellung und bestätigen die Abholzeit.</p></section></div>
+  return <div className="checkout-backdrop" onMouseDown={event => event.target === event.currentTarget && onClose()}><section className="checkout-panel"><header><div><span>GRAFFITI ORDER</span><h2>Dein Warenkorb</h2></div><button onClick={onClose} aria-label="Schließen">×</button></header>
+    <div className="cart-lines">{cart.map(item => <article key={item.id}><div><b>{item.name}</b><small>{(item.priceCents / 100).toFixed(2).replace('.', ',')} €</small></div><div className="cart-quantity"><button onClick={() => quantity(item.id, -1)}>−</button><span>{item.quantity}</span><button onClick={() => quantity(item.id, 1)}>+</button></div></article>)}</div>
+    <div className="cart-total"><span>GESAMT</span><b>{(total / 100).toFixed(2).replace('.', ',')} €</b></div>
+    <form className="checkout-form" onSubmit={async event => {
+      event.preventDefault(); setSending(true); setError('')
+      const data = Object.fromEntries(new FormData(event.currentTarget))
+      try {
+        const response = await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...data, consent: data.consent === 'on', items: cart.map(({ id, quantity }) => ({ id, quantity })) }) })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error)
+        setSent(result.orderId); setCart([])
+      } catch (failure) { setError(failure.message) } finally { setSending(false) }
+    }}>
+      <div className="checkout-grid"><label>Name<input name="name" autoComplete="name" required/></label><label>Telefon<input name="phone" type="tel" autoComplete="tel" required/></label></div>
+      <label>E-Mail<input name="email" type="email" autoComplete="email" required/></label>
+      <label>Gewünschte Abholung<input name="pickupAt" type="datetime-local"/></label>
+      <label>Anmerkungen<textarea name="notes" rows="3" placeholder="Allergien, Wünsche …"/></label>
+      <label className="checkout-trap" aria-hidden="true">Website<input name="website" tabIndex="-1" autoComplete="off"/></label>
+      <label className="consent-field"><input name="consent" type="checkbox" required/><span>Ich stimme der Verarbeitung meiner Daten zur Durchführung der Bestellung gemäß der Datenschutzerklärung zu.</span></label>
+      <p className="payment-note">Bezahlung bei Abholung · bar oder mit Karte</p>{error && <p className="checkout-error">{error}</p>}
+      <button className="btn primary" disabled={sending || !cart.length}>{sending ? 'Wird gesendet …' : 'Kostenpflichtig bestellen →'}</button>
+    </form>
+  </section></div>
+}
 
 const burgerLayers = [burgerLayer1, burgerLayer2, burgerLayer3, burgerLayer4, burgerLayer5, burgerLayer6, burgerLayer7]
 const closedLayerY = [115, 240, 305, 325, 365, 395, 440]
@@ -170,7 +209,7 @@ const legalContent = {
   datenschutz: {
     eyebrow: 'DEINE DATEN',
     title: 'Datenschutz',
-    body: <><h3>1. Verantwortlicher</h3><p>Graffiti Smash Burgers, Oberbachstraße 4, 37603 Holzminden<br/>E-Mail: <a href="mailto:info@graffitismash.de">info@graffitismash.de</a></p><h3>2. Hosting und Server-Logfiles</h3><p>Beim Aufruf dieser Website kann der Hostinganbieter technisch notwendige Verbindungsdaten verarbeiten, insbesondere IP-Adresse, Zeitpunkt, aufgerufene Datei, Referrer und Browserinformationen. Die Verarbeitung dient der sicheren und stabilen Bereitstellung der Website auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO.</p><h3>3. Kartendarstellung</h3><p>Die interaktive Karte wird mit MapLibre und Kartenkacheln von CARTO bereitgestellt. Beim Laden der Karte wird technisch bedingt eine Verbindung zu CARTO hergestellt, wobei insbesondere die IP-Adresse übertragen werden kann. Kartendaten basieren auf OpenStreetMap-Beiträgen.</p><h3>4. Externe Links</h3><p>Bestelllinks führen zu FoodBooking, Bewertungs- und Routenlinks zu Google. Erst beim Anklicken gelten die Datenschutzbestimmungen des jeweiligen Anbieters.</p><h3>5. Google Fonts</h3><p>Zur Darstellung der Schriften kann eine Verbindung zu Google Fonts hergestellt werden. Dabei kann Ihre IP-Adresse an Google übertragen werden.</p><h3>6. Kontaktaufnahme</h3><p>Wenn Sie uns per E-Mail oder Telefon kontaktieren, verarbeiten wir Ihre Angaben zur Bearbeitung der Anfrage gemäß Art. 6 Abs. 1 lit. b oder lit. f DSGVO.</p><h3>7. Ihre Rechte</h3><p>Sie haben insbesondere Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung, Datenübertragbarkeit und Widerspruch sowie ein Beschwerderecht bei einer Datenschutzaufsichtsbehörde.</p><p className="legal-note">Stand: Juli 2026. Diese Datenschutzerklärung beschreibt die aktuell auf dieser Website eingebundenen Dienste.</p></>,
+    body: <><h3>1. Verantwortlicher</h3><p>Graffiti Smash Burgers, Oberbachstraße 4, 37603 Holzminden<br/>E-Mail: <a href="mailto:info@graffitismash.de">info@graffitismash.de</a></p><h3>2. Hosting und Server-Logfiles</h3><p>Beim Aufruf dieser Website kann der Hostinganbieter technisch notwendige Verbindungsdaten verarbeiten, insbesondere IP-Adresse, Zeitpunkt, aufgerufene Datei, Referrer und Browserinformationen. Die Verarbeitung dient der sicheren und stabilen Bereitstellung der Website auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO.</p><h3>3. Kartendarstellung</h3><p>Die interaktive Karte wird mit MapLibre und Kartenkacheln von CARTO bereitgestellt. Beim Laden der Karte wird technisch bedingt eine Verbindung zu CARTO hergestellt, wobei insbesondere die IP-Adresse übertragen werden kann. Kartendaten basieren auf OpenStreetMap-Beiträgen.</p><h3>4. Bestellungen</h3><p>Zur Durchführung einer Bestellung verarbeiten wir Name, E-Mail-Adresse, Telefonnummer, Bestellinhalt, Abholzeit und freiwillige Anmerkungen. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO. Abgeschlossene Bestellungen werden im operativen System grundsätzlich nach 90 Tagen entfernt; gesetzlich aufbewahrungspflichtige Geschäftsunterlagen können außerhalb dieses Systems länger gespeichert werden.</p><h3>5. Bestellbenachrichtigungen</h3><p>Wenn die entsprechende Schnittstelle aktiviert wurde, werden Bestelldaten über den konfigurierten E-Mail-Anbieter und Telegram an das Restaurant übermittelt. Dabei können Daten durch die jeweiligen Anbieter verarbeitet werden. Die Benachrichtigungen dienen der Durchführung des Vertrags gemäß Art. 6 Abs. 1 lit. b DSGVO.</p><h3>6. Kontaktaufnahme</h3><p>Wenn Sie uns per E-Mail oder Telefon kontaktieren, verarbeiten wir Ihre Angaben zur Bearbeitung der Anfrage gemäß Art. 6 Abs. 1 lit. b oder lit. f DSGVO.</p><h3>7. Ihre Rechte</h3><p>Sie haben insbesondere Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung, Datenübertragbarkeit und Widerspruch sowie ein Beschwerderecht bei einer Datenschutzaufsichtsbehörde.</p><p className="legal-note">Stand: Juli 2026. Vor dem Produktivbetrieb sind die konkreten Hosting-, SMTP- und Telegram-Anbieter sowie Auftragsverarbeitungsverträge vom Verantwortlichen zu prüfen und gegebenenfalls hier zu ergänzen.</p></>,
   },
 }
 
@@ -179,6 +218,15 @@ function App() {
   const [scrolled, setScrolled] = useState(false)
   const [category, setCategory] = useState('Burgers')
   const [panel, setPanel] = useState(null)
+  const [cart, setCart] = useState([])
+  const [checkout, setCheckout] = useState(false)
+  const addItem = (categoryName, number, name, price) => {
+    const id = productId(categoryName, number, name)
+    const priceCents = cents(price)
+    setCart(current => current.some(item => item.id === id)
+      ? current.map(item => item.id === id ? { ...item, quantity: item.quantity + 1 } : item)
+      : [...current, { id, name, priceCents, quantity: 1 }])
+  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24)
@@ -206,7 +254,7 @@ function App() {
       <a className="brand brand-logo" href="#top" onClick={close}><img src="/graffiti-smash-logo.svg" alt="Graffiti Smash Burgers" /></a>
       <nav id="mobile-navigation" className={open ? 'nav-links open' : 'nav-links'}>
         <a href="#menu" onClick={close}>Speisekarte</a><a href="#story" onClick={close}>Unser Smash</a><a href="#location" onClick={close}>Standort</a><a href="#contact" onClick={close}>Kontakt</a>
-        <a className="nav-order" href={orderUrl} target="_blank" rel="noreferrer" onClick={close}>Online bestellen <span>↗</span></a>
+        <button className="nav-order" onClick={() => { close(); document.querySelector('#menu')?.scrollIntoView() }}>Online bestellen <span>→</span></button>
       </nav>
       <button className={open ? 'menu-toggle active' : 'menu-toggle'} onClick={() => setOpen(!open)} aria-label={open ? 'Menü schließen' : 'Menü öffnen'} aria-expanded={open} aria-controls="mobile-navigation"><span/><span/><span/></button>
       <button className={open ? 'menu-backdrop visible' : 'menu-backdrop'} onClick={close} aria-label="Menü schließen"/>
@@ -214,14 +262,14 @@ function App() {
 
     <main>
       <section className="split-hero" id="top">
-        <div className="split-copy"><div className="eyebrow">SMASH BURGERS · HOLZMINDEN</div><h1>NO<br/>RULES.<br/><em>JUST SMASH.</em></h1><p>Farbige Buns. Knusprige Kanten. Saftiger Kern. Streetfood aus der Oberbachstraße.</p><div className="split-actions"><a className="btn primary" href={orderUrl} target="_blank" rel="noreferrer">Jetzt abholen ↗</a><a className="text-link" href="#menu">Karte ansehen ↓</a></div><div className="split-meta"><span><b>4.8</b> / 5 GOOGLE</span><span><i className="pulse"/> HEUTE 14–22 UHR</span></div></div>
+        <div className="split-copy"><div className="eyebrow">SMASH BURGERS · HOLZMINDEN</div><h1>NO<br/>RULES.<br/><em>JUST SMASH.</em></h1><p>Farbige Buns. Knusprige Kanten. Saftiger Kern. Streetfood aus der Oberbachstraße.</p><div className="split-actions"><a className="btn primary" href="#menu">Jetzt abholen →</a><a className="text-link" href="#menu">Karte ansehen ↓</a></div><div className="split-meta"><span><b>4.8</b> / 5 GOOGLE</span><span><i className="pulse"/> HEUTE 14–22 UHR</span></div></div>
         <div className="split-visual"><img src={hero} alt="Frisch zubereiteter Double Smash Burger"/><span className="visual-tag">DOUBLE<br/>SMASH</span><div className="visual-price">FRESH<br/>DAILY</div></div>
       </section>
       <div className="street-ticker"><div>SMASHED FRESH ✦ COLORFUL BUNS ✦ HOLZMINDEN ✦ ORDER & PICK UP ✦ SMASHED FRESH ✦ COLORFUL BUNS ✦ HOLZMINDEN ✦ ORDER & PICK UP ✦</div></div>
 
       <section className="menu-lab" id="menu">
-        <aside className="menu-aside"><img className="food-sticker menu-sticker" src={burgerSticker} alt="" aria-hidden="true"/><span className="kicker">THE FULL MENU</span><h2>WHAT’S<br/><em>YOUR MOVE?</em></h2><a href={orderUrl} target="_blank" rel="noreferrer">Direkt online bestellen ↗</a><span className="swipe-hint" aria-hidden="true">Kategorien wischen <b>→</b></span><div className="category-stack" role="tablist">{Object.keys(menu).map((name,i)=><button key={name} className={category===name?'active':''} onClick={()=>setCategory(name)}><span>0{i+1}</span>{name}<b>→</b></button>)}</div></aside>
-        <div className="menu-list"><div className="menu-list-head"><span>{category}</span><span>{menu[category].length} ITEMS</span></div>{menu[category].map(([number,name,description,price])=><article className="menu-row" key={`${category}-${name}`}><span className="row-number">{number||'•'}</span><div><h3>{name}</h3>{description&&<p>{description}</p>}</div><strong>{price}</strong><a href={orderUrl} target="_blank" rel="noreferrer" aria-label={`${name} bestellen`}>+</a></article>)}</div>
+        <aside className="menu-aside"><img className="food-sticker menu-sticker" src={burgerSticker} alt="" aria-hidden="true"/><span className="kicker">THE FULL MENU</span><h2>WHAT’S<br/><em>YOUR MOVE?</em></h2><button className="menu-order-trigger" onClick={() => cart.length ? setCheckout(true) : document.querySelector('.menu-list')?.scrollIntoView()}>Warenkorb öffnen ({cart.reduce((sum,item)=>sum+item.quantity,0)}) →</button><span className="swipe-hint" aria-hidden="true">Kategorien wischen <b>→</b></span><div className="category-stack" role="tablist">{Object.keys(menu).map((name,i)=><button key={name} className={category===name?'active':''} onClick={()=>setCategory(name)}><span>0{i+1}</span>{name}<b>→</b></button>)}</div></aside>
+        <div className="menu-list"><div className="menu-list-head"><span>{category}</span><span>{menu[category].length} ITEMS</span></div>{menu[category].map(([number,name,description,price])=><article className="menu-row" key={`${category}-${name}`}><span className="row-number">{number||'•'}</span><div><h3>{name}</h3>{description&&<p>{description}</p>}</div><strong>{price}</strong><button onClick={()=>addItem(category,number,name,price)} aria-label={`${name} zum Warenkorb hinzufügen`}>+</button></article>)}</div>
       </section>
 
       <ScrollBurger/>
@@ -256,7 +304,8 @@ function App() {
       </div>
       <div className="footer-bottom"><span>© 2026 Graffiti Smash Holzminden</span><nav aria-label="Rechtliche Links"><a href="#contact">Kontakt</a><button onClick={() => setPanel('impressum')}>Impressum</button><button onClick={() => setPanel('datenschutz')}>Datenschutz</button></nav><a className="footer-top" href="#top" aria-label="Nach oben">↑</a></div>
     </footer>
-    <a className="mobile-order" href={orderUrl} target="_blank" rel="noreferrer"><span>Abholung bestellen</span><b>↗</b></a>
+    <button className="mobile-order" onClick={() => cart.length ? setCheckout(true) : document.querySelector('#menu')?.scrollIntoView()}><span>{cart.length ? `Warenkorb · ${cart.reduce((sum,item)=>sum+item.quantity,0)} Artikel` : 'Abholung bestellen'}</span><b>→</b></button>
+    {checkout && <Checkout cart={cart} setCart={setCart} onClose={() => setCheckout(false)}/>}
     {panel && <div className="legal-modal" role="dialog" aria-modal="true" aria-labelledby="legal-title" onMouseDown={event => event.target === event.currentTarget && setPanel(null)}><article><button className="legal-close" onClick={() => setPanel(null)} aria-label="Schließen">×</button><span className="kicker">{legalContent[panel].eyebrow}</span><h2 id="legal-title">{legalContent[panel].title}</h2><div className="legal-body">{legalContent[panel].body}</div></article></div>}
   </div>
 }

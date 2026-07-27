@@ -19,6 +19,8 @@ tmp
 /graffiti-smash-logo.svg
 /icons.svg
 *.local
+.env
+/data
 
 # Editor directories and files
 .vscode/*
