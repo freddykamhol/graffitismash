@@ -169,6 +169,12 @@ img {
 @media (max-width: 620px) {
   .checkout-panel { box-shadow: none; }
   .checkout-grid { grid-template-columns: 1fr; }
+  .cart-toast {
+    right: 1rem;
+    bottom: 5.6rem;
+    grid-template-columns: 42px 1fr;
+  }
+  .cart-toast > strong { display: none; }
 }
 
 .menu-aside {
@@ -553,6 +559,27 @@ img {
 .header-cart.has-items b {
   color: #fff;
   background: var(--purple);
+}
+
+.header-cart.cart-bump {
+  animation: cart-bump 520ms cubic-bezier(.2, 1.6, .45, 1);
+}
+
+.header-cart.cart-bump b {
+  animation: count-pop 520ms cubic-bezier(.2, 1.8, .45, 1);
+}
+
+@keyframes cart-bump {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.13) rotate(-2deg); box-shadow: 0 0 0 7px rgba(200,255,53,.2); }
+  70% { transform: scale(.97) rotate(1deg); }
+  100% { transform: scale(1); }
+}
+
+@keyframes count-pop {
+  0% { transform: scale(.5); }
+  55% { transform: scale(1.45); }
+  100% { transform: scale(1); }
 }
 
 .order-button,
@@ -1600,6 +1627,108 @@ img {
 .menu-row > button:hover {
   color: #fff;
   background: var(--purple);
+}
+
+.menu-row.just-added {
+  background: rgba(200,255,53,.22);
+}
+
+.menu-row > button {
+  position: relative;
+  cursor: pointer;
+}
+
+.menu-row > button.added {
+  border-color: var(--purple);
+  color: #fff;
+  background: var(--purple);
+  animation: add-confirm 420ms cubic-bezier(.2, 1.7, .4, 1);
+}
+
+.menu-row > button i {
+  position: absolute;
+  top: -9px;
+  right: -9px;
+  min-width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--purple);
+  font-size: .62rem;
+  font-style: normal;
+}
+
+@keyframes add-confirm {
+  0% { transform: scale(.65) rotate(-12deg); }
+  65% { transform: scale(1.2) rotate(4deg); }
+  100% { transform: scale(1); }
+}
+
+.cart-toast {
+  position: fixed;
+  z-index: 1200;
+  right: clamp(1rem, 3vw, 3rem);
+  bottom: clamp(1rem, 3vw, 2rem);
+  width: min(430px, calc(100% - 2rem));
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  align-items: center;
+  gap: .9rem;
+  padding: .85rem 1rem;
+  border: 2px solid var(--ink);
+  color: var(--ink);
+  background: var(--acid);
+  box-shadow: 8px 8px 0 var(--purple);
+  cursor: pointer;
+  text-align: left;
+  animation: toast-in 420ms cubic-bezier(.16, 1.35, .4, 1), toast-out 260ms ease 2.1s forwards;
+}
+
+.cart-toast > span {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--purple);
+  font-size: 1.4rem;
+  font-weight: 1000;
+}
+
+.cart-toast div {
+  min-width: 0;
+  display: grid;
+  gap: .12rem;
+}
+
+.cart-toast small {
+  font-size: .6rem;
+  font-weight: 1000;
+  letter-spacing: .14em;
+}
+
+.cart-toast div b {
+  overflow: hidden;
+  font-size: .95rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cart-toast > strong {
+  font-size: .68rem;
+  font-weight: 1000;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translate3d(0, 130%, 0) rotate(2deg); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) rotate(0); }
+}
+
+@keyframes toast-out {
+  to { opacity: 0; transform: translate3d(120%, 0, 0); }
 }
 
 .smash-process > header {

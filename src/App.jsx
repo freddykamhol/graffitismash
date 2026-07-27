@@ -220,12 +220,17 @@ function App() {
   const [panel, setPanel] = useState(null)
   const [cart, setCart] = useState([])
   const [checkout, setCheckout] = useState(false)
+  const [cartFeedback, setCartFeedback] = useState(null)
+  const feedbackTimer = useRef(null)
   const addItem = (categoryName, number, name, price) => {
     const id = productId(categoryName, number, name)
     const priceCents = cents(price)
     setCart(current => current.some(item => item.id === id)
       ? current.map(item => item.id === id ? { ...item, quantity: item.quantity + 1 } : item)
       : [...current, { id, name, priceCents, quantity: 1 }])
+    window.clearTimeout(feedbackTimer.current)
+    setCartFeedback({ id: `${id}-${Date.now()}`, name })
+    feedbackTimer.current = window.setTimeout(() => setCartFeedback(null), 2400)
   }
 
   useEffect(() => {
@@ -247,6 +252,8 @@ function App() {
     return () => document.body.classList.remove('menu-open')
   }, [open])
 
+  useEffect(() => () => window.clearTimeout(feedbackTimer.current), [])
+
   const close = () => setOpen(false)
 
   return <div className="page">
@@ -256,7 +263,7 @@ function App() {
         <a href="#menu" onClick={close}>Speisekarte</a><a href="#story" onClick={close}>Unser Smash</a><a href="#location" onClick={close}>Standort</a><a href="#contact" onClick={close}>Kontakt</a>
         <button className="nav-order" onClick={() => { close(); document.querySelector('#menu')?.scrollIntoView() }}>Online bestellen <span>→</span></button>
       </nav>
-      <button className={cart.length ? 'header-cart has-items' : 'header-cart'} onClick={() => cart.length ? setCheckout(true) : document.querySelector('#menu')?.scrollIntoView()} aria-label={cart.length ? `Warenkorb mit ${cart.reduce((sum,item)=>sum+item.quantity,0)} Artikeln öffnen` : 'Zur Speisekarte'}>
+      <button key={cartFeedback?.id || 'cart'} className={`${cart.length ? 'header-cart has-items' : 'header-cart'}${cartFeedback ? ' cart-bump' : ''}`} onClick={() => cart.length ? setCheckout(true) : document.querySelector('#menu')?.scrollIntoView()} aria-label={cart.length ? `Warenkorb mit ${cart.reduce((sum,item)=>sum+item.quantity,0)} Artikeln öffnen` : 'Zur Speisekarte'}>
         <span className="cart-icon" aria-hidden="true"/><span className="cart-label">Warenkorb</span><b>{cart.reduce((sum,item)=>sum+item.quantity,0)}</b>
       </button>
       <button className={open ? 'menu-toggle active' : 'menu-toggle'} onClick={() => setOpen(!open)} aria-label={open ? 'Menü schließen' : 'Menü öffnen'} aria-expanded={open} aria-controls="mobile-navigation"><span/><span/><span/></button>
@@ -272,7 +279,7 @@ function App() {
 
       <section className="menu-lab" id="menu">
         <aside className="menu-aside"><img className="food-sticker menu-sticker" src={burgerSticker} alt="" aria-hidden="true"/><span className="kicker">THE FULL MENU</span><h2>WHAT’S<br/><em>YOUR MOVE?</em></h2><button className="menu-order-trigger" onClick={() => cart.length ? setCheckout(true) : document.querySelector('.menu-list')?.scrollIntoView()}>Warenkorb öffnen ({cart.reduce((sum,item)=>sum+item.quantity,0)}) →</button><span className="swipe-hint" aria-hidden="true">Kategorien wischen <b>→</b></span><div className="category-stack" role="tablist">{Object.keys(menu).map((name,i)=><button key={name} className={category===name?'active':''} onClick={()=>setCategory(name)}><span>0{i+1}</span>{name}<b>→</b></button>)}</div></aside>
-        <div className="menu-list"><div className="menu-list-head"><span>{category}</span><span>{menu[category].length} ITEMS</span></div>{menu[category].map(([number,name,description,price])=><article className="menu-row" key={`${category}-${name}`}><span className="row-number">{number||'•'}</span><div><h3>{name}</h3>{description&&<p>{description}</p>}</div><strong>{price}</strong><button onClick={()=>addItem(category,number,name,price)} aria-label={`${name} zum Warenkorb hinzufügen`}>+</button></article>)}</div>
+        <div className="menu-list"><div className="menu-list-head"><span>{category}</span><span>{menu[category].length} ITEMS</span></div>{menu[category].map(([number,name,description,price])=>{const id=productId(category,number,name);const added=cartFeedback?.name===name;return <article className={`menu-row${added?' just-added':''}`} key={`${category}-${name}`}><span className="row-number">{number||'•'}</span><div><h3>{name}</h3>{description&&<p>{description}</p>}</div><strong>{price}</strong><button className={added?'added':''} onClick={()=>addItem(category,number,name,price)} aria-label={`${name} zum Warenkorb hinzufügen`}>{added?'✓':'+'}<i>{cart.find(item=>item.id===id)?.quantity||''}</i></button></article>})}</div>
       </section>
 
       <ScrollBurger/>
@@ -308,6 +315,7 @@ function App() {
       <div className="footer-bottom"><span>© 2026 Graffiti Smash Holzminden</span><nav aria-label="Rechtliche Links"><a href="#contact">Kontakt</a><button onClick={() => setPanel('impressum')}>Impressum</button><button onClick={() => setPanel('datenschutz')}>Datenschutz</button></nav><a className="footer-top" href="#top" aria-label="Nach oben">↑</a></div>
     </footer>
     <button className="mobile-order" onClick={() => cart.length ? setCheckout(true) : document.querySelector('#menu')?.scrollIntoView()}><span>{cart.length ? `Warenkorb · ${cart.reduce((sum,item)=>sum+item.quantity,0)} Artikel` : 'Abholung bestellen'}</span><b>→</b></button>
+    {cartFeedback && <button key={cartFeedback.id} className="cart-toast" onClick={() => setCheckout(true)}><span>✓</span><div><small>IM WARENKORB</small><b>{cartFeedback.name}</b></div><strong>ÖFFNEN →</strong></button>}
     {checkout && <Checkout cart={cart} setCart={setCart} onClose={() => setCheckout(false)}/>}
     {panel && <div className="legal-modal" role="dialog" aria-modal="true" aria-labelledby="legal-title" onMouseDown={event => event.target === event.currentTarget && setPanel(null)}><article><button className="legal-close" onClick={() => setPanel(null)} aria-label="Schließen">×</button><span className="kicker">{legalContent[panel].eyebrow}</span><h2 id="legal-title">{legalContent[panel].title}</h2><div className="legal-body">{legalContent[panel].body}</div></article></div>}
   </div>
