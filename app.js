@@ -9,6 +9,7 @@ import { integrationConfig, sendEmail, sendTelegram, sendTelegramAccepted } from
 
 const root = fileURLToPath(new URL('./dist/', import.meta.url))
 const port = Number(process.env.PORT) || 80
+const apiOnly = process.env.API_ONLY === 'true'
 const production = process.env.NODE_ENV === 'production'
 const publicUrl = (process.env.PUBLIC_URL || 'http://localhost').replace(/\/$/, '')
 const privacyVersion = '2026-07-orders-v1'
@@ -296,11 +297,12 @@ async function api(req, res, url) {
 }
 
 const indexPath = join(root, 'index.html')
-if (!existsSync(indexPath)) { console.error('Build fehlt. Bitte npm run build ausführen.'); process.exit(1) }
+if (!apiOnly && !existsSync(indexPath)) { console.error('Build fehlt. Bitte npm run build ausführen.'); process.exit(1) }
 createServer(async (req, res) => {
   const url = new URL(req.url, publicUrl)
   try {
     if (url.pathname.startsWith('/api/')) return await api(req, res, url)
+    if (apiOnly) return json(res, 404, { error: 'Im Entwicklungsmodus wird das Frontend von Vite ausgeliefert.' })
     const requestedPath = normalize(decodeURIComponent(url.pathname)).replace(/^([/\\])+/, '')
     let filePath = join(root, requestedPath)
     if (!filePath.startsWith(root)) { res.writeHead(403, securityHeaders); return res.end('Zugriff verweigert') }

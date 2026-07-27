@@ -11,7 +11,8 @@ Vor dem ersten Produktionsstart:
 1. `.env.example` als Vorlage für die Server-Umgebung verwenden.
 2. `APP_MASTER_KEY` mit mindestens 32 zufälligen Zeichen setzen und sicher sichern.
 3. `ADMIN_EMAIL` und ein einzigartiges `ADMIN_PASSWORD` mit mindestens 14 Zeichen setzen.
-4. `PUBLIC_URL=https://graffitismash.de` und `NODE_ENV=production` setzen.
+4. `PUBLIC_URL=https://graffitismash.de` setzen und `NODE_ENV=production` außerhalb
+   der `.env` im Hosting beziehungsweise Prozessmanager konfigurieren.
 5. Den Ordner aus `DATA_DIR` persistent sichern und nur für den Serverprozess lesbar machen.
 
 SMTP und Telegram werden anschließend unter `/system/admin` konfiguriert. Secrets

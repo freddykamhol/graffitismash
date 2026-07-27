@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run build && concurrently -k -n API,WEB -c magenta,green \"cross-env PORT=8787 PUBLIC_URL=http://localhost:5173 NODE_ENV=development node app.js\" \"vite\"",
+    "dev": "concurrently -k -n API,WEB -c magenta,green \"cross-env API_ONLY=true PORT=8787 PUBLIC_URL=http://localhost:5173 NODE_ENV=development node app.js\" \"vite\"",
     "build": "node scripts/prepare-index.js && vite build && node scripts/publish-static.js",
     "lint": "oxlint",
     "preview": "vite preview",
