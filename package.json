@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node scripts/prepare-index.js && vite",
+    "build": "node scripts/prepare-index.js && vite build && node scripts/publish-static.js",
     "lint": "oxlint",
     "preview": "vite preview",
     "start": "node app.js"

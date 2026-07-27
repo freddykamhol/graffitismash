@@ -11,6 +11,13 @@ node_modules
 dist
 dist-ssr
 tmp
+/assets
+/attack-graffiti.ttf
+/favicon-chroma.png
+/favicon-modern.svg
+/favicon.svg
+/graffiti-smash-logo.svg
+/icons.svg
 *.local
 
 # Editor directories and files
