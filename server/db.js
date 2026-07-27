@@ -67,8 +67,17 @@ CREATE TABLE IF NOT EXISTS action_tokens (
   expires_at TEXT NOT NULL,
   used_at TEXT
 );
+CREATE TABLE IF NOT EXISTS page_visits (
+  visit_date TEXT NOT NULL,
+  visitor_hash TEXT NOT NULL,
+  views INTEGER NOT NULL DEFAULT 1,
+  first_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (visit_date, visitor_hash)
+);
 CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash);
+CREATE INDEX IF NOT EXISTS idx_visits_date ON page_visits(visit_date);
 `)
 
 const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
@@ -84,6 +93,7 @@ if (adminEmail && adminPassword && !db.prepare('SELECT id FROM users LIMIT 1').g
 db.prepare("DELETE FROM sessions WHERE expires_at<=datetime('now')").run()
 db.prepare(`DELETE FROM orders WHERE status IN ('accepted','rejected','cancelled')
   AND created_at < datetime('now', ?)`).run(`-${Math.max(1, Number(process.env.ORDER_RETENTION_DAYS) || 90)} days`)
+db.prepare("DELETE FROM page_visits WHERE visit_date < date('now','-395 days')").run()
 
 export function auditSafeOrder(row) {
   return row && { ...row, items: JSON.parse(row.items_json), items_json: undefined }

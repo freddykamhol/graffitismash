@@ -105,6 +105,15 @@ async function notify(order) {
 
 async function api(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/catalog') return json(res, 200, catalog)
+  if (req.method === 'POST' && url.pathname === '/api/analytics/visit') {
+    const existing = cookies(req).gs_visitor
+    const visitor = existing && existing.length >= 32 ? existing : token()
+    db.prepare(`INSERT INTO page_visits(visit_date,visitor_hash) VALUES(date('now','localtime'),?)
+      ON CONFLICT(visit_date,visitor_hash) DO UPDATE SET views=views+1,last_seen_at=CURRENT_TIMESTAMP`).run(digest(visitor))
+    return json(res, 200, { ok: true }, existing ? {} : {
+      'Set-Cookie': `gs_visitor=${encodeURIComponent(visitor)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=34128000${production ? '; Secure' : ''}`,
+    })
+  }
   if (req.method === 'POST' && url.pathname === '/api/orders') {
     const data = await body(req)
     if (data.website) return json(res, 202, { ok: true })
@@ -154,6 +163,55 @@ async function api(req, res, url) {
   if (req.method === 'GET' && url.pathname === '/api/admin/orders') {
     const found = requireSession(req, res); if (!found) return
     return json(res, 200, db.prepare('SELECT * FROM orders ORDER BY created_at DESC LIMIT 200').all().map(auditSafeOrder))
+  }
+  if (req.method === 'GET' && url.pathname === '/api/admin/stats') {
+    const found = requireSession(req, res); if (!found) return
+    const range = ['day', 'week', 'month', 'year'].includes(url.searchParams.get('range')) ? url.searchParams.get('range') : 'week'
+    const settings = {
+      day: { modifier: '-1 day', bucket: "%Y-%m-%d %H:00", label: 'Stunde' },
+      week: { modifier: '-7 days', bucket: '%Y-%m-%d', label: 'Tag' },
+      month: { modifier: '-30 days', bucket: '%Y-%m-%d', label: 'Tag' },
+      year: { modifier: '-1 year', bucket: '%Y-%m', label: 'Monat' },
+    }[range]
+    const acceptedRows = db.prepare(`SELECT * FROM orders WHERE status='accepted' AND created_at>=datetime('now',?) ORDER BY created_at`).all(settings.modifier)
+    const allRows = db.prepare(`SELECT * FROM orders WHERE created_at>=datetime('now',?) ORDER BY created_at`).all(settings.modifier)
+    const series = db.prepare(`SELECT strftime(?,created_at,'localtime') bucket,COUNT(*) orders,COALESCE(SUM(total_cents),0) revenue_cents
+      FROM orders WHERE status='accepted' AND created_at>=datetime('now',?) GROUP BY bucket ORDER BY bucket`).all(settings.bucket, settings.modifier)
+    const visits = db.prepare(`SELECT visit_date bucket,COUNT(*) visitors,SUM(views) views FROM page_visits
+      WHERE visit_date>=date('now',?) GROUP BY visit_date ORDER BY visit_date`).all(settings.modifier)
+    const products = new Map()
+    for (const order of acceptedRows) {
+      for (const item of JSON.parse(order.items_json)) {
+        const entry = products.get(item.id) || { id: item.id, name: item.name, quantity: 0, revenue_cents: 0 }
+        entry.quantity += item.quantity
+        entry.revenue_cents += item.priceCents * item.quantity
+        products.set(item.id, entry)
+      }
+    }
+    const paymentMethods = Object.entries(acceptedRows.reduce((result, order) => {
+      result[order.payment_method] = (result[order.payment_method] || 0) + 1
+      return result
+    }, {})).map(([method, count]) => ({ method, count })).sort((a, b) => b.count - a.count)
+    const revenueCents = acceptedRows.reduce((sum, order) => sum + order.total_cents, 0)
+    const rejected = allRows.filter(order => ['rejected', 'cancelled'].includes(order.status)).length
+    const prepRows = acceptedRows.filter(order => order.accepted_minutes)
+    return json(res, 200, {
+      range, bucketLabel: settings.label,
+      summary: {
+        revenueCents,
+        acceptedOrders: acceptedRows.length,
+        averageOrderCents: acceptedRows.length ? Math.round(revenueCents / acceptedRows.length) : 0,
+        averagePrepMinutes: prepRows.length ? Math.round(prepRows.reduce((sum, order) => sum + order.accepted_minutes, 0) / prepRows.length) : 0,
+        rejectionRate: allRows.length ? Math.round(rejected / allRows.length * 1000) / 10 : 0,
+        visitors: visits.reduce((sum, row) => sum + row.visitors, 0),
+        pageViews: visits.reduce((sum, row) => sum + row.views, 0),
+      },
+      series,
+      visits,
+      topProducts: [...products.values()].sort((a, b) => b.quantity - a.quantity).slice(0, 8),
+      paymentMethods,
+      generatedAt: new Date().toISOString(),
+    })
   }
   const orderMatch = url.pathname.match(/^\/api\/admin\/orders\/(\d+)$/)
   if (req.method === 'PATCH' && orderMatch) {

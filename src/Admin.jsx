@@ -58,6 +58,36 @@ function OrderCard({ order, mutate }) {
   </article>
 }
 
+function Statistics({ stats, range, setRange, reload }) {
+  if (!stats) return <div className="stats-loading"><div className="loading-mark"/><span>Statistiken werden berechnet …</span></div>
+  const maxRevenue = Math.max(1, ...stats.series.map(point => point.revenue_cents))
+  const maxVisitors = Math.max(1, ...stats.visits.map(point => point.visitors))
+  const rangeLabel = { day: 'Heute', week: '7 Tage', month: '30 Tage', year: '12 Monate' }[range]
+  return <section>
+    <div className="system-hero"><div><p>BUSINESS INTELLIGENCE</p><h1>Statistiken<span>.</span></h1><small>Umsatz, Besucher und Produktperformance</small></div><button onClick={reload} className="refresh-button"><span>↻</span> Aktualisieren</button></div>
+    <div className="range-switch">{[['day','Tag'],['week','Woche'],['month','Monat'],['year','Jahr']].map(([value,label])=><button className={range===value?'active':''} key={value} onClick={()=>setRange(value)}>{label}</button>)}</div>
+    <div className="stats-kpis">
+      <article className="primary"><small>UMSATZ · {rangeLabel.toUpperCase()}</small><b>{money(stats.summary.revenueCents)}</b><span>{stats.summary.acceptedOrders} angenommene Bestellungen</span></article>
+      <article><small>Ø BESTELLWERT</small><b>{money(stats.summary.averageOrderCents)}</b><span>pro angenommener Order</span></article>
+      <article><small>BESUCHER</small><b>{stats.summary.visitors}</b><span>{stats.summary.pageViews} Seitenaufrufe</span></article>
+      <article><small>Ø ZUBEREITUNG</small><b>{stats.summary.averagePrepMinutes}<i> min</i></b><span>Ablehnungsquote {stats.summary.rejectionRate}%</span></article>
+    </div>
+    <div className="stats-grid">
+      <article className="stats-panel revenue-chart"><header><div><small>UMSATZVERLAUF</small><h2>{rangeLabel}</h2></div><mark>LIVE DATA</mark></header>
+        {stats.series.length ? <div className="bar-chart">{stats.series.map(point=><div className="bar-column" key={point.bucket}><span>{money(point.revenue_cents)}</span><i style={{height:`${Math.max(5,point.revenue_cents/maxRevenue*100)}%`}}/><small>{point.bucket.slice(range==='year'?5:range==='day'?11:5)}</small></div>)}</div> : <div className="chart-empty">Noch keine angenommenen Bestellungen</div>}
+      </article>
+      <article className="stats-panel visitor-chart"><header><div><small>REICHWEITE</small><h2>Besucher</h2></div><b>{stats.summary.visitors}</b></header>
+        {stats.visits.length ? <div className="visitor-bars">{stats.visits.map(point=><div key={point.bucket}><i style={{height:`${Math.max(4,point.visitors/maxVisitors*100)}%`}}/><small>{point.bucket.slice(5)}</small></div>)}</div> : <div className="chart-empty">Besucherzählung startet jetzt</div>}
+        <footer><span><i/> Eindeutige Besucher</span><span>{stats.summary.pageViews} Views</span></footer>
+      </article>
+      <article className="stats-panel product-ranking"><header><div><small>TOP PERFORMANCE</small><h2>Produkte</h2></div><mark>MEIST BESTELLT</mark></header>
+        {stats.topProducts.length ? <ol>{stats.topProducts.map((product,index)=><li key={product.id}><b>{String(index+1).padStart(2,'0')}</b><div><strong>{product.name}</strong><span>{money(product.revenue_cents)} Umsatz</span></div><em>{product.quantity}×</em></li>)}</ol> : <div className="chart-empty">Noch keine Produktdaten</div>}
+      </article>
+      <div className="coming-grid"><article className="coming-stat"><span>COMING NEXT</span><div>🍔</div><h2>Meist geordnetes Menü</h2><p>Menü-Kombinationen und beliebteste Bundles.</p><mark>FOLGT</mark></article><article className="coming-stat"><span>COMING NEXT</span><div>◈</div><h2>Top-Bezahlmethode</h2><p>Auswertung nach Bar-, Karten- und Onlinezahlung.</p><mark>FOLGT AUCH</mark></article></div>
+    </div>
+  </section>
+}
+
 export default function Admin() {
   const [auth, setAuth] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -66,14 +96,18 @@ export default function Admin() {
   const [orders, setOrders] = useState([])
   const [users, setUsers] = useState([])
   const [integrations, setIntegrations] = useState({})
+  const [stats, setStats] = useState(null)
+  const [range, setRange] = useState('week')
   const [notice, setNotice] = useState('')
   const [connection, setConnection] = useState('loading')
   const [lastSync, setLastSync] = useState(null)
   const [seconds, setSeconds] = useState(10)
   const loadingRef = useRef(false)
   const authRef = useRef(null)
+  const rangeRef = useRef('week')
 
   useEffect(() => { authRef.current = auth }, [auth])
+  useEffect(() => { rangeRef.current = range }, [range])
 
   const load = useCallback(async (session, silent = false) => {
     const current = session || authRef.current
@@ -81,8 +115,12 @@ export default function Admin() {
     loadingRef.current = true
     if (!silent) setConnection('loading')
     try {
-      const nextOrders = await request('/api/admin/orders')
+      const [nextOrders, nextStats] = await Promise.all([
+        request('/api/admin/orders'),
+        request(`/api/admin/stats?range=${rangeRef.current}`),
+      ])
       setOrders(nextOrders)
+      setStats(nextStats)
       if (current.user.role === 'admin') {
         const [nextUsers, rows] = await Promise.all([request('/api/admin/users'), request('/api/admin/integrations')])
         setUsers(nextUsers)
@@ -115,6 +153,10 @@ export default function Admin() {
     document.addEventListener('visibilitychange', visible)
     return () => { window.clearInterval(tick); document.removeEventListener('visibilitychange', visible) }
   }, [auth, load])
+
+  useEffect(() => {
+    if (auth && tab === 'stats') load(auth, true)
+  }, [range, tab, auth, load])
 
   useEffect(() => {
     if (!notice) return
@@ -156,7 +198,8 @@ export default function Admin() {
     </header>
     <nav className="system-tabs">
       <button className={tab==='orders'?'active':''} onClick={()=>setTab('orders')}><span>01</span>Bestellungen{pending>0&&<b>{pending}</b>}</button>
-      {auth.user.role==='admin'&&<><button className={tab==='users'?'active':''} onClick={()=>setTab('users')}><span>02</span>Benutzer</button><button className={tab==='integrations'?'active':''} onClick={()=>setTab('integrations')}><span>03</span>Schnittstellen</button></>}
+      <button className={tab==='stats'?'active':''} onClick={()=>setTab('stats')}><span>02</span>Statistiken</button>
+      {auth.user.role==='admin'&&<><button className={tab==='users'?'active':''} onClick={()=>setTab('users')}><span>03</span>Benutzer</button><button className={tab==='integrations'?'active':''} onClick={()=>setTab('integrations')}><span>04</span>Schnittstellen</button></>}
     </nav>
     {notice && <button className="system-toast" onClick={()=>setNotice('')}><span>✓</span>{notice}</button>}
     <main className="system-content">
@@ -166,6 +209,7 @@ export default function Admin() {
         <div className="order-toolbar"><div>{[['active','Aktiv'],['pending','Neu'],['accepted','Angenommen'],['all','Alle']].map(([value,label])=><button className={filter===value?'active':''} key={value} onClick={()=>setFilter(value)}>{label}</button>)}</div><span>{visibleOrders.length} Bestellungen</span></div>
         {visibleOrders.length ? <div className="order-grid">{visibleOrders.map(order=><OrderCard order={order} mutate={mutateOrder} key={order.id}/>)}</div> : <div className="empty-orders"><div>✓</div><h2>Alles erledigt.</h2><p>Keine Bestellungen in dieser Ansicht.</p></div>}
       </section>}
+      {tab==='stats'&&<Statistics stats={stats} range={range} setRange={setRange} reload={()=>load(auth)}/>}
       {tab==='users'&&<section>
         <div className="system-hero"><div><p>ACCESS CONTROL</p><h1>Benutzer<span>.</span></h1><small>Zugänge und Berechtigungen verwalten</small></div></div>
         <div className="user-list">{users.map(user=><article className="user-card" key={user.id}><div className="user-avatar">{user.name.slice(0,2).toUpperCase()}</div><div><b>{user.name}</b><span>{user.email}</span></div><mark>{user.role}</mark><button onClick={async()=>{await request(`/api/admin/users/${user.id}`,{method:'PATCH',body:JSON.stringify({active:!user.active,role:user.role})},auth.csrf);await load(auth,true)}}>{user.active?'Aktiv':'Gesperrt'} <i/></button></article>)}</div>
@@ -179,6 +223,6 @@ export default function Admin() {
         </div>
       </section>}
     </main>
-    <nav className="system-mobile-nav"><button className={tab==='orders'?'active':''} onClick={()=>setTab('orders')}><i>▤</i><span>Orders</span>{pending>0&&<b>{pending}</b>}</button>{auth.user.role==='admin'&&<><button className={tab==='users'?'active':''} onClick={()=>setTab('users')}><i>♙</i><span>Benutzer</span></button><button className={tab==='integrations'?'active':''} onClick={()=>setTab('integrations')}><i>⌁</i><span>Connect</span></button></>}</nav>
+    <nav className="system-mobile-nav"><button className={tab==='orders'?'active':''} onClick={()=>setTab('orders')}><i>▤</i><span>Orders</span>{pending>0&&<b>{pending}</b>}</button><button className={tab==='stats'?'active':''} onClick={()=>setTab('stats')}><i>⌁</i><span>Stats</span></button>{auth.user.role==='admin'&&<><button className={tab==='users'?'active':''} onClick={()=>setTab('users')}><i>♙</i><span>Benutzer</span></button><button className={tab==='integrations'?'active':''} onClick={()=>setTab('integrations')}><i>⚙</i><span>Connect</span></button></>}</nav>
   </div>
 }
