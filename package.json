@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/prepare-index.js && vite",
+    "dev": "npm run build && concurrently -k -n API,WEB -c magenta,green \"cross-env PORT=8787 PUBLIC_URL=http://localhost:5173 NODE_ENV=development node app.js\" \"vite\"",
     "build": "node scripts/prepare-index.js && vite build && node scripts/publish-static.js",
     "lint": "oxlint",
     "preview": "vite preview",
@@ -22,6 +22,8 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "concurrently": "^9.2.4",
+    "cross-env": "^10.1.0",
     "oxlint": "^1.71.0",
     "vite": "^8.1.1"
   }

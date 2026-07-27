@@ -256,6 +256,9 @@ function App() {
         <a href="#menu" onClick={close}>Speisekarte</a><a href="#story" onClick={close}>Unser Smash</a><a href="#location" onClick={close}>Standort</a><a href="#contact" onClick={close}>Kontakt</a>
         <button className="nav-order" onClick={() => { close(); document.querySelector('#menu')?.scrollIntoView() }}>Online bestellen <span>→</span></button>
       </nav>
+      <button className={cart.length ? 'header-cart has-items' : 'header-cart'} onClick={() => cart.length ? setCheckout(true) : document.querySelector('#menu')?.scrollIntoView()} aria-label={cart.length ? `Warenkorb mit ${cart.reduce((sum,item)=>sum+item.quantity,0)} Artikeln öffnen` : 'Zur Speisekarte'}>
+        <span className="cart-icon" aria-hidden="true"/><span className="cart-label">Warenkorb</span><b>{cart.reduce((sum,item)=>sum+item.quantity,0)}</b>
+      </button>
       <button className={open ? 'menu-toggle active' : 'menu-toggle'} onClick={() => setOpen(!open)} aria-label={open ? 'Menü schließen' : 'Menü öffnen'} aria-expanded={open} aria-controls="mobile-navigation"><span/><span/><span/></button>
       <button className={open ? 'menu-backdrop visible' : 'menu-backdrop'} onClick={close} aria-label="Menü schließen"/>
     </header>

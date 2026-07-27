@@ -9,7 +9,9 @@ async function request(path, options = {}, csrf = '') {
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', ...(csrf ? { 'X-CSRF-Token': csrf } : {}), ...options.headers },
   })
-  const data = await response.json().catch(() => ({}))
+  const type = response.headers.get('content-type') || ''
+  if (!type.includes('application/json')) throw new Error('API nicht erreichbar. Bitte den vollständigen Server mit „npm run dev“ starten.')
+  const data = await response.json()
   if (!response.ok) throw new Error(data.error || 'Anfrage fehlgeschlagen')
   return data
 }
@@ -46,7 +48,7 @@ export default function Admin() {
   }
   useEffect(() => { request('/api/admin/session').then(data => { setAuth(data); return load(data) }).catch(() => {}).finally(() => setLoading(false)) }, [])
   if (loading) return <div className="system-loading">System wird geladen …</div>
-  if (!auth) return <Login onLogin={data => { setAuth(data); load(data) }}/>
+  if (!auth?.user) return <Login onLogin={data => { setAuth(data); load(data) }}/>
   const mutateOrder = async (id, status, minutes) => {
     await request(`/api/admin/orders/${id}`, { method: 'PATCH', body: JSON.stringify({ status, minutes }) }, auth.csrf); await load()
   }
