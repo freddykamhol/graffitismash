@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { createCipheriv, createDecipheriv, createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
 
 const key = process.env.APP_MASTER_KEY
