@@ -10,6 +10,33 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        function showStartupError(message, detail) {
+          var root = document.getElementById('root')
+          if (!root || root.childElementCount > 0 || root.textContent.trim().length > 0) return
+          root.innerHTML =
+            '<div style="min-height:100vh;background:#09080b;color:#fff;padding:24px;font-family:system-ui,-apple-system,Segoe UI,sans-serif">' +
+            '<div style="max-width:820px;margin:60px auto;background:#171419;border:1px solid #463d4c;padding:24px;box-shadow:8px 8px 0 #9a31ff">' +
+            '<strong>Website konnte nicht gestartet werden</strong>' +
+            '<p style="color:#bbb4c0">Das HTML wurde geladen, aber die React-App nicht gerendert.</p>' +
+            '<pre style="white-space:pre-wrap;overflow:auto;background:#09080b;border:1px solid #463d4c;padding:14px;color:#c8ff35">' +
+            message + (detail ? '\n\n' + detail : '') + '\n\nURL: ' + window.location.href +
+            '</pre><p style="color:#888;font-size:12px">Im Network-Tab muss die Datei /assets/index-….js Status 200 und den Typ application/javascript besitzen.</p>' +
+            '</div></div>'
+        }
+
+        window.addEventListener('error', function (event) {
+          showStartupError(event.message || 'JavaScript-Fehler beim Laden.', event.filename || '')
+        }, true)
+        window.addEventListener('unhandledrejection', function (event) {
+          showStartupError('Unhandled promise rejection', String(event.reason || ''))
+        })
+        window.setTimeout(function () {
+          showStartupError('Timeout: #root ist nach 5 Sekunden noch leer.', 'Das JavaScript-Bundle wurde wahrscheinlich nicht geladen oder ausgeführt.')
+        }, 5000)
+      })()
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
